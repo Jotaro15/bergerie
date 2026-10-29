@@ -1,5 +1,6 @@
 extends Node
 ## État global du jeu (argent, jour/nuit, outil actif) + les signaux que l'interface écoute.
+#à rajouter : gestion du jour différé/ des phases de la lune + gestion des tickets 
 
 signal money_changed(amount: int)
 signal day_changed(day: int)
@@ -41,7 +42,8 @@ func _ready() -> void:
 
 
 # On déclare les touches en code avec les keycodes *physiques* : ça donne ZQSD
-# sur un clavier AZERTY sans rien avoir à configurer.
+# sur un clavier AZERTY sans rien avoir à configurer. (tiré de stackoverflow)
+# possibilité de changer les touches + ajout manette à rajouter + tard.
 func _register_inputs() -> void:
 	for action: StringName in MOVE_KEYS:
 		if not InputMap.has_action(action):

@@ -14,7 +14,9 @@ const CELLS_PER_SHEEP := 16            # 1 mouton pour 16 cases, avant bonus des
 # --- économie ---
 const START_MONEY := 800
 const DAILY_BONUS := 100
-const BONUS_DELAY := 86400             # 24h en secondes réelles
+const BONUS_DELAY := 86400             # 24h en secondes réelles - pour la récupération des bonus, 
+#c'est mieux car au début j'ai bêtement mis jour-nuit, sauf qu'on peut tricher en enchaînant les journées du coup...
+# Est-ce que je reprendrais pas le délai de 24h pour la gestation des agneaux ? (ça me semble plus logique que 2 jours de jeu, et ça permet de mieux gérer les naissances)
 const FEED_COST := 3
 const MILK_GAIN := 12
 const BOTTLE_COST := 5

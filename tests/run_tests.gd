@@ -1,7 +1,7 @@
 extends SceneTree
 ## Lanceur de tests minimaliste (pas besoin d'un plugin).
 ## Usage : godot --headless -s tests/run_tests.gd
-## Chaque fichier test_*.gd du dossier expose des méthodes test_*() qui utilisent assert_true / assert_eq.
+## Chaque fichier test_*.gd du dossier expose des méthodes test_*() qui utilisent assert_true / assert_eq... Tests repris à l'IA (valable pr tout le dossier tests)!!!
 
 var _passed := 0
 var _failed := 0

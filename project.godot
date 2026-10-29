@@ -1,12 +1,11 @@
 ; Engine configuration file.
-; Ne pas éditer à la main sauf si tu sais ce que tu fais, l'éditeur le réécrit.
 
 config_version=5
 
 [application]
 
 config/name="Bergerie"
-config/description="Jeu de gestion de moutons en isométrique : protège ton troupeau des loups et collectionne les laines."
+config/description="Jeu de gestion de moutons : protège ton troupeau des loups et collectionne les laines." #on verra + tard pour une meilleure description
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 
@@ -15,12 +14,12 @@ config/features=PackedStringArray("4.4", "GL Compatibility")
 Game="*res://scripts/autoload/game.gd"
 
 [display]
+#pareil j ai réutilisé ce que j'ai vu ailleurs, pas sûre de garder ça.
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
-
+window/stretch/aspect="expand" 
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

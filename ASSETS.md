@@ -1,15 +1,10 @@
 # Assets
 
-Pour l'instant, **tout est dessiné en code** (`_draw()` : moutons, loups, berger, chiens,
-bâtiments, interface). C'était un choix volontaire : le jeu tourne sans aucun fichier
-externe et chaque entité a une silhouette lisible dès le premier lancement. Le jour où
-de vrais sprites sont branchés, seules les méthodes `_draw()` des entités sont à remplacer
-par un `AnimatedSprite2D`.
+Pour l'instant, je n'ai pas eu le temps de créer les assets par moi même donc tout est fait avec claude en code, pour avoir malgré tout un rendu cohérent. 
 
 ## Packs gratuits repérés
 
-À vérifier à chaque fois : la licence exacte est celle affichée sur la page de téléchargement
-le jour où on récupère le pack.
+Petite veille de potentiels pack graduits pour éviter d'utiliser le contenu généré de Claude. 
 
 | Besoin | Pack | Licence annoncée | Remarques |
 |---|---|---|---|
@@ -28,13 +23,13 @@ le jour où on récupère le pack.
 
 - La plupart de ces packs sont en pixel art, de côté ou vus de dessus. Ils ne sont pas tous
   isométriques et n'ont pas quatre directions. Mélanger les styles se voit vite : mieux vaut
-  prendre un seul pack cohérent (Kenney pour le décor, un seul auteur pour les animaux).
-- La direction artistique visée est du flat pastel mignon. Un pack pixel art demandera soit
-  de changer de style pour le reste, soit de redessiner les sprites.
-- Des outils comme Aseprite (sprites), Tiled ou LDtk (cartes) peuvent compléter la chaîne,
-  mais ne sont pas nécessaires au projet actuel.
+  prendre un seul pack cohérent (Kenney pour le décor, un seul auteur pour les animaux)??
+  À voir quelle direction je prends pour la DA, car aucun ne me convient, et je ne souhaite pas acheter de packs pour le moment. 
 
-## Intégrer un pack
+- La direction artistique visée est du flat pastel mignon. (voir inspirations). Un pack pixel art demandera soit de changer de style pour le reste, soit de redessiner les sprites.
+- Des outils comme Aseprite (sprites), Tiled ou LDtk (cartes) peuvent compléter la chaîne, mais ne sont pas nécessaires au projet actuel.
+
+## Intégrer un pack (mémo pour plus tard)
 
 1. Copier les images dans `assets/<pack>/` et garder le fichier de licence à côté.
 2. Dans `entities/`, remplacer le `_draw()` de l'entité par un `AnimatedSprite2D` alimenté

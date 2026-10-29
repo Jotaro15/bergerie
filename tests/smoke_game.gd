@@ -1,7 +1,7 @@
 extends Node
 ## Test d'intégration : lance vraiment le jeu et déroule une partie en accéléré.
 ## Usage : godot --headless --fixed-fps 60 res://tests/smoke_game.tscn
-## (--fixed-fps pour que chaque frame compte 1/60 s même si ça tourne beaucoup plus vite)
+## (--fixed-fps pour que chaque frame compte 1/60 s même si ça tourne beaucoup plus vite) -- Tests repris à l'IA (valable pr tout le dossier tests)!!!
 
 var _passed := 0
 var _failed := 0

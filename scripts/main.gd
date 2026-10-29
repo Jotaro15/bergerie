@@ -1,5 +1,5 @@
 extends Node
-## Point d'entrée : crée le monde, charge la sauvegarde s'il y en a une, puis l'interface.
+## Point d'entrée : crée le monde, charge la sauvegarde s'il y en a une, puis l'interface :)
 
 
 func _ready() -> void:
