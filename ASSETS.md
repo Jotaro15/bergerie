@@ -35,3 +35,49 @@ Petite veille de potentiels pack graduits pour éviter d'utiliser le contenu gé
 2. Dans `entities/`, remplacer le `_draw()` de l'entité par un `AnimatedSprite2D` alimenté
    par un `SpriteFrames` (animations `idle`, `walk`, `eat`).
 3. Ajouter une ligne au tableau ci-dessus avec la source et la licence réellement utilisées.
+
+# Idées pour la suite du projet
+
+## Phase 1:
+[x] drag & drop des moutons et retirer le déplacement au clic. Permet de gérer les moutons qui s'égarent, s'échapent, et de placer comme on veut les moutons dans les enclos. 
+
+[ ] Mise en pause du jeu (pratique pour la nuit, ou les loups peuvent attaquer)
+
+[] Enlever la limite de laines possibles, et revoir le système de vente de laine. 
+
+[] nourrir et entretenir les chiens + ajouter des blessures possibles sur les chiens (par pourcentage ou après un certain nb de rencontres ?), entrainant l'appel du vétérinaire pour le soigner. 
+
+[] Rajouter une limite de moutons par enclos et une notion de bien être lié à l'entourage (mouton tout seul ou dans un enclos trop bondé = pas heureux = ne produira plus de ressources)
+
+[]Pouvoir nommer les moutons et au passage de la souris, voir leur noms (permet un meilleur suivi des animaux)
+
+## Phase 2:
+
+[] Faire les couleurs de laines différentes, les motifs de laine, et les races différentes
+
+[] faire des accessoires pour moutons et pour chiens, avec bonus et propriétés particulières (par exemple chasser les loups, ou fait fleurir le champ, ou produit *2 de laine en plus, etc)
+
+[] faire propriétés sur les décorations qui s'activent quand elles sont dans un enclos
+surveiller la commutativité des bonus
+
+[] stand de vente de laine avec création du camion
+
+[] ajouter un marchant louche (1 chance sur 3 d'avoir un super mouton avec un élément jamais débloqué, et le reste on obtient un peu de laine ou une décoration simple). 
+
+[] ajouter un choix dans les enclos et barrières (montagne, herbe basse, herbe haute, champ de fleurs, champ de blé)
+
+[] ajouter les pièges anti loups. 
+
+## Phase 3:
+
+[] Agrandir la map
+
+[] étendre le filtre de nuit au delà du territoire exploitable
+
+[] pendant la nuit, permettre rarement des pluies d'étoiles filantes, qui font tomber de la poussière d'étoile. En drag & drop, on peut la soupoudrer sur un mouton, ce qui lui donne un skin bleu à paillettes.
+
+[] créer l'abre généalogique
+
+[] En cliquant sur un mouton on peut ouvrir sa fiche avec son historique, son arbre généalogique, et changer ses skins (par exemple etoiles filantes).
+
+[] Ajouter les moutons dorés, qui sont des moutons qui distribuent de la laine extrêmement chère. Dispoonible une fois qu'on a découvert toutes les couleurs de laines d'un mouton, on a le mouton doré de sa race. 
