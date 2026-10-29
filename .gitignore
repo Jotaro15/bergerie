@@ -1,0 +1,15 @@
+# Godot 4
+.godot/
+.import/
+*.translation
+
+# Exports
+build/
+*.apk
+*.exe
+*.pck
+*.zip
+
+# Éditeurs
+.vscode/
+.idea/

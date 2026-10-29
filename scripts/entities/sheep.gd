@@ -1,0 +1,273 @@
+class_name Sheep
+extends Node2D
+## Un mouton. Il se balade dans sa région d'enclos tout seul, le reste (nourrir,
+## traire, tondre...) est piloté de l'extérieur par ToolController et Flock.
+##
+## Le dessin est fait en code pour l'instant (formes simples). Quand j'aurai les
+## vrais sprites, il suffira de remplacer _draw() par un AnimatedSprite2D.
+
+signal removed(sheep: Sheep)
+
+enum Sex { EWE, RAM }
+enum Place { PEN, ESCAPED, STRAY }
+
+const OUTLINE := Color("5a3e4b")
+const SKIN := Color("f4d3c4")
+const FACE := Color("6b5560")
+
+var map: FarmMap
+var sex: Sex = Sex.EWE
+var wool_id: StringName = &"white"
+var growth: int = Config.LAMB_STAGES   # < LAMB_STAGES = agneau
+var place: Place = Place.PEN
+var fed := false
+var last_shear_day := -99
+var last_milk_day := -99
+var last_bottle_day := -99
+var pregnant := false
+var due_day := 0
+var baby_wool: StringName = &"white"
+var in_labor := false
+var wounded := false
+var wounded_day := 0
+
+var cell_pos := Vector2.ZERO
+var targeted := false   # un loup l'a déjà dans le viseur
+var held := false       # un loup est en train de le croquer, il ne bouge plus
+var hovered := false
+
+var _target := Vector2.ZERO
+var _moving := false
+var _wait := 0.0
+var _facing := 1.0
+var _bob := 0.0
+var _redraw_in := 0.0
+
+
+func _ready() -> void:
+	add_to_group("sheep")
+	_wait = randf_range(0.5, 3.0)
+	_sync_position()
+
+
+# --- état ---
+
+func cell_i() -> Vector2i:
+	return Vector2i(floori(cell_pos.x), floori(cell_pos.y))
+
+
+func region() -> int:
+	return map.region_id(cell_i())
+
+
+func is_adult() -> bool:
+	return growth >= Config.LAMB_STAGES
+
+
+func is_shorn() -> bool:
+	return Game.day - last_shear_day < Config.SHEAR_DELAY_DAYS
+
+
+func can_shear() -> bool:
+	return is_adult() and fed and not is_shorn()
+
+
+func can_milk() -> bool:
+	return sex == Sex.EWE and is_adult() and fed and last_milk_day != Game.day
+
+
+func place_at(cell: Vector2) -> void:
+	cell_pos = cell
+	_moving = false
+	_sync_position()
+
+
+func wound() -> void:
+	wounded = true
+	wounded_day = Game.day
+	held = true
+
+
+## Vendu, mangé ou mort : dans tous les cas il sort du troupeau.
+func remove_from_game() -> void:
+	removed.emit(self)
+	queue_free()
+
+
+func get_eaten() -> void:
+	remove_from_game()
+
+
+# --- déplacement ---
+
+func _process(delta: float) -> void:
+	_bob += delta * 8.0
+	if held:
+		_moving = false
+	elif _moving:
+		_step(delta)
+	else:
+		_wait -= delta
+		if _wait <= 0.0:
+			_pick_target()
+			_wait = randf_range(1.0, 4.0)
+
+	_redraw_in -= delta
+	if _moving or _redraw_in <= 0.0:
+		_redraw_in = 0.3
+		queue_redraw()
+
+
+func _step(delta: float) -> void:
+	var speed := Config.SHEEP_SPEED * (1.0 if is_adult() else 1.25)
+	var to_target := _target - cell_pos
+	var step := speed * delta
+	if to_target.length() <= step:
+		cell_pos = _target
+		_moving = false
+		_sync_position()
+		return
+
+	var next := cell_pos + to_target.normalized() * step
+	if not _allowed(next):
+		_moving = false
+		return
+
+	var dx := Iso.to_screen(next).x - position.x
+	if absf(dx) > 0.01:
+		_facing = signf(dx)
+	cell_pos = next
+	_sync_position()
+
+
+func _allowed(cell: Vector2) -> bool:
+	var ci := Vector2i(floori(cell.x), floori(cell.y))
+	if place == Place.PEN:
+		# un mouton d'enclos reste dans sa région, les barrières l'arrêtent
+		return map.region_id(ci) == region()
+	return FarmMap.in_world(ci)
+
+
+func _pick_target() -> void:
+	for attempt in 6:
+		var candidate := cell_pos + Vector2(randf_range(-3.0, 3.0), randf_range(-3.0, 3.0))
+		if _allowed(candidate):
+			_target = candidate
+			_moving = true
+			return
+
+
+func _sync_position() -> void:
+	position = Iso.to_screen(cell_pos)
+
+
+# --- sauvegarde ---
+
+func to_dict() -> Dictionary:
+	return {
+		"sex": sex, "wool": String(wool_id), "growth": growth, "place": place,
+		"x": cell_pos.x, "y": cell_pos.y, "fed": fed,
+		"shear": last_shear_day, "milk": last_milk_day, "bottle": last_bottle_day,
+		"pregnant": pregnant, "due": due_day, "baby": String(baby_wool),
+		"labor": in_labor, "wounded": wounded, "wounded_day": wounded_day,
+	}
+
+
+func load_dict(data: Dictionary) -> void:
+	sex = int(data.get("sex", 0)) as Sex
+	wool_id = StringName(data.get("wool", "white"))
+	growth = int(data.get("growth", Config.LAMB_STAGES))
+	place = int(data.get("place", 0)) as Place
+	cell_pos = Vector2(float(data.get("x", 0.0)), float(data.get("y", 0.0)))
+	fed = bool(data.get("fed", false))
+	last_shear_day = int(data.get("shear", -99))
+	last_milk_day = int(data.get("milk", -99))
+	last_bottle_day = int(data.get("bottle", -99))
+	pregnant = bool(data.get("pregnant", false))
+	due_day = int(data.get("due", 0))
+	baby_wool = StringName(data.get("baby", "white"))
+	in_labor = bool(data.get("labor", false))
+	wounded = bool(data.get("wounded", false))
+	wounded_day = int(data.get("wounded_day", 0))
+
+
+# --- dessin ---
+
+func _draw() -> void:
+	var grow := 0.62 + 0.38 * float(mini(growth, Config.LAMB_STAGES)) / Config.LAMB_STAGES
+	var bob := absf(sin(_bob)) * 1.5 if _moving else 0.0
+	var wool := WoolRegistry.color_of(wool_id)
+
+	_ellipse(Vector2.ZERO, 11.0 * grow, 4.5 * grow, Color(0, 0, 0, 0.18))
+
+	# tout ce qui suit est dessiné à l'échelle du mouton et retourné selon la direction
+	draw_set_transform(Vector2(0, -bob), 0.0, Vector2(_facing * grow, grow))
+
+	# pattes
+	draw_rect(Rect2(-6, -6, 3, 6), FACE)
+	draw_rect(Rect2(3, -6, 3, 6), FACE)
+
+	if is_shorn():
+		var skin := SKIN.lerp(wool, 0.3)
+		_puffs([Vector2(-3, -9), Vector2(3, -9)], 5.5, skin)
+	else:
+		_puffs([Vector2(-6, -11), Vector2(-1, -14), Vector2(5, -12),
+				Vector2(-3, -8), Vector2(3, -8)], 7.0, wool)
+
+	# tête
+	draw_circle(Vector2(10, -10), 5.6, OUTLINE)
+	draw_circle(Vector2(10, -10), 4.4, FACE)
+	draw_circle(Vector2(8, -14), 2.0, FACE)
+	draw_circle(Vector2(11.5, -11), 0.9, Color.WHITE)
+	if sex == Sex.RAM and is_adult():
+		draw_arc(Vector2(8, -14), 3.6, PI * 0.9, PI * 2.2, 10, Color("e0b44a"), 2.0)
+
+	draw_set_transform(Vector2.ZERO)
+
+	if hovered:
+		draw_arc(Vector2(0, -9), 18.0, 0.0, TAU, 28, Color.WHITE, 2.0)
+	_draw_badges(grow)
+
+
+func _puffs(centers: Array, radius: float, color: Color) -> void:
+	for center: Vector2 in centers:
+		draw_circle(center, radius + 1.6, OUTLINE)
+	for center: Vector2 in centers:
+		draw_circle(center, radius, color)
+
+
+func _ellipse(center: Vector2, rx: float, ry: float, color: Color) -> void:
+	var points := PackedVector2Array()
+	for i in 18:
+		var a := TAU * i / 18.0
+		points.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	draw_colored_polygon(points, color)
+
+
+# Petites pastilles au-dessus du mouton pour voir d'un coup d'oeil ce qu'il lui faut.
+func _draw_badges(grow: float) -> void:
+	var badges: Array[Dictionary] = []
+	if place == Place.STRAY:
+		badges.append({"text": "?", "color": Color("8fd3f4")})
+	if wounded or in_labor:
+		badges.append({"text": "+", "color": Color("e0504a")})
+	elif pregnant:
+		badges.append({"text": "♥", "color": Color("f2a0b8")})
+	if Game.is_day() and place != Place.STRAY:
+		if not fed:
+			badges.append({"text": "!", "color": Color("f2a65a")})
+		else:
+			if can_shear():
+				badges.append({"text": "T", "color": Color("f7d94c")})
+			if can_milk():
+				badges.append({"text": "L", "color": Color("a8dcf0")})
+
+	var y := -32.0 * grow - 2.0
+	var x := -(badges.size() - 1) * 8.0
+	for badge in badges:
+		var center := Vector2(x, y)
+		draw_circle(center, 7.5, OUTLINE)
+		draw_circle(center, 6.2, badge["color"])
+		draw_string(ThemeDB.fallback_font, center + Vector2(-3.5, 4.5), badge["text"],
+				HORIZONTAL_ALIGNMENT_LEFT, 8, 12, OUTLINE)
+		x += 16.0
