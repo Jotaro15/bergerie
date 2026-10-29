@@ -2,24 +2,31 @@
 
 config_version=5
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
 
 config/name="Bergerie"
-config/description="Jeu de gestion de moutons : protège ton troupeau des loups et collectionne les laines." #on verra + tard pour une meilleure description
+config/description="Jeu de gestion de moutons : protège ton troupeau des loups et collectionne les laines."
+run/main_scene="uid://c7k4m2n8q1x5b"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+;on verra + tard pour une meilleure description
 run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.4", "GL Compatibility")
 
 [autoload]
 
 Game="*res://scripts/autoload/game.gd"
 
 [display]
-#pareil j ai réutilisé ce que j'ai vu ailleurs, pas sûre de garder ça.
 
-window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand" 
+window/stretch/aspect="expand"
+; pareil j'ai utilisé ce que j'ai vu ailleurs, passée de garder ça.
+window/size/viewport_width=1280
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
