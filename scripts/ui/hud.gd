@@ -5,7 +5,7 @@ extends CanvasLayer
 
 # id, libellé, aide affichée en bas
 const TOOLS := [
-	[&"walk", "Se déplacer", "Clique pour te déplacer, ou utilise ZQSD / les flèches."],
+	[&"walk", "Déplacer", "Glisse un mouton pour le changer d'enclos. Le berger se déplace avec ZQSD / les flèches."],
 	[&"feed", "Nourrir", "Clique sur un enclos (ou un mouton) pour distribuer le foin : 3 pièces par mouton."],
 	[&"milk", "Traire", "Clique sur une brebis adulte qui a mangé. Une fois par jour."],
 	[&"shear", "Tondre", "Clique sur un mouton adulte qui a mangé. Possible tous les 3 jours."],

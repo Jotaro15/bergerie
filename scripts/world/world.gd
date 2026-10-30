@@ -22,6 +22,7 @@ var tools: ToolController
 var shepherd: Shepherd
 var camera: Camera2D
 var night_tint: CanvasModulate
+var dragger: SheepDragger
 
 var _fences: Array[FenceSegment] = []
 var _buildings: Array[Building] = []
@@ -66,6 +67,11 @@ func _build_tree() -> void:
 	tools.map = farm_map
 	tools.flock = flock
 	add_child(tools)
+	
+	dragger = SheepDragger.new()
+	dragger.map = farm_map
+	dragger.flock = flock
+	add_child(dragger)
 
 	build_controller = BuildController.new()
 	build_controller.map = farm_map
@@ -166,7 +172,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed:
 		match (event as InputEventKey).keycode:
 			KEY_ESCAPE:
-				Game.clear_mode()
+				_cancel_or_clear()
 			KEY_F:
 				_follow_camera = true
 
@@ -181,11 +187,16 @@ func _on_mouse_button(mouse: InputEventMouseButton) -> void:
 			_panning = mouse.pressed
 		MOUSE_BUTTON_RIGHT:
 			if mouse.pressed:
-				Game.clear_mode()
+				_cancel_or_clear()
 		MOUSE_BUTTON_LEFT:
 			if mouse.pressed:
 				_on_left_click()
 
+func _cancel_or_clear() -> void:
+	if dragger.is_dragging():
+		dragger.cancel()
+	else:
+		Game.clear_mode()
 
 func _zoom(factor: float) -> void:
 	camera.zoom = (camera.zoom * factor).clamp(Vector2(0.5, 0.5), Vector2(2.4, 2.4))
@@ -198,9 +209,9 @@ func _on_left_click() -> void:
 	if not Game.is_day():
 		_night_click(cell)
 	elif Game.tool_id == &"walk":
-		_walk_to(cell)
-	else:
-		tools.apply(Game.tool_id, point)
+		# déplacement au clic abandonné pour le moment au profit du drag & drop des moutons
+		# _walk_to(cell)
+		dragger.begin(point)
 
 
 # La nuit : cliquer sur un chantier quand on est dessus le fait avancer,
@@ -215,9 +226,11 @@ func _night_click(cell: Vector2) -> void:
 			site.hit()
 		else:
 			Game.say("Place-toi sur le chantier pour construire.")
-			_walk_to(cell)
+			# déplacement au clic abandonné pour le moment au profit du drag & drop des moutons
+			# _walk_to(cell)
 		return
-	_walk_to(cell)
+	# déplacement au clic abandonné pour le moment au profit du drag & drop des moutons
+	# _walk_to(cell)
 
 
 func _walk_to(cell: Vector2) -> void:

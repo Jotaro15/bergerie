@@ -8,6 +8,8 @@ signal phase_changed(phase: int)
 signal stats_changed
 signal toast(message: String)
 signal mode_changed
+# émis par la boutique (shop_panel.gd), pas ici : Godot ne peut pas le deviner
+@warning_ignore("unused_signal")
 signal item_chosen(item: ShopItem)
 
 enum Phase { DAY, NIGHT }
