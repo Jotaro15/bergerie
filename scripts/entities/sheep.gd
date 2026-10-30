@@ -14,8 +14,7 @@ enum Place { PEN, ESCAPED, STRAY }
 const OUTLINE := Color("5a3e4b")
 const SKIN := Color("f4d3c4")
 const FACE := Color("6b5560")
-const LIFT_HEIGHT := 12.0   # de combien le mouton se soulève quand on l'attrape (je verrais si selon les races ou skins on doit modifier)
-
+const LIFT_HEIGHT := 12.0   # de combien le mouton se soulève quand on l'attrape
 
 var map: FarmMap
 var sex: Sex = Sex.EWE
@@ -37,19 +36,18 @@ var cell_pos := Vector2.ZERO
 var targeted := false   # un loup l'a déjà dans le viseur
 var held := false       # un loup est en train de le croquer, il ne bouge plus
 var hovered := false
-
-var _target := Vector2.ZERO
-var _moving := false
-var _wait := 0.0
-var _facing := 1.0
-var _bob := 0.0
-var _redraw_in := 0.0
 var dragged := false:   # le joueur le tient à la souris (drag & drop)
 	set(value):
 		dragged = value
 		z_index = 20 if value else 0   # un mouton porté passe devant les autres
 
 var _lift := 0.0
+var _target := Vector2.ZERO
+var _moving := false
+var _wait := 0.0
+var _facing := 1.0
+var _bob := 0.0
+var _redraw_in := 0.0
 
 
 func _ready() -> void:
@@ -108,22 +106,22 @@ func get_eaten() -> void:
 
 # --- déplacement ---
 
-func _process(delta: float) -> void:
-	_bob += delta * 8.0
-	if held:
-		_moving = false
-	elif _moving:
-		_step(delta)
-	else:
-		_wait -= delta
-		if _wait <= 0.0:
-			_pick_target()
-			_wait = randf_range(1.0, 4.0)
+#func _process(delta: float) -> void:
+	#_bob += delta * 8.0
+	#if held:
+		#_moving = false
+	#elif _moving:
+		#_step(delta)
+	#else:
+		#_wait -= delta
+		#if _wait <= 0.0:
+			#_pick_target()
+			#_wait = randf_range(1.0, 4.0)
 
-	_redraw_in -= delta
-	if _moving or _redraw_in <= 0.0:
-		_redraw_in = 0.3
-		queue_redraw()
+	#_redraw_in -= delta
+	#if _moving or _redraw_in <= 0.0:
+		#_redraw_in = 0.3
+		#queue_redraw()
 
 ## Pendant un drag & drop : le mouton suit la souris sans changer de case (`cell_pos`),
 ## c'est le SheepDragger qui décide au lâcher s'il reste ou s'il retourne à sa place.
@@ -156,6 +154,7 @@ func _process(delta: float) -> void:
 	if _moving or dragged or lifting or _redraw_in <= 0.0:
 		_redraw_in = 0.3
 		queue_redraw()
+
 
 func _step(delta: float) -> void:
 	var speed := Config.SHEEP_SPEED * (1.0 if is_adult() else 1.25)
@@ -236,14 +235,13 @@ func _draw() -> void:
 	var grow := 0.62 + 0.38 * float(mini(growth, Config.LAMB_STAGES)) / Config.LAMB_STAGES
 	var bob := absf(sin(_bob)) * 1.5 if _moving else 0.0
 	var wool := WoolRegistry.color_of(wool_id)
-	var shadow_scale := 1.0 - 0.25 * _lift / LIFT_HEIGHT
-   
-    _ellipse(Vector2.ZERO, 11.0 * grow * shadow_scale, 4.5 * grow * shadow_scale, Color(0, 0, 0, 0.18 * shadow_scale))
 
-	#_ellipse(Vector2.ZERO, 11.0 * grow, 4.5 * grow, Color(0, 0, 0, 0.18))
+	# l'ombre reste au sol, plus petite et plus claire quand le mouton est soulevé
+	var shadow_scale := 1.0 - 0.25 * _lift / LIFT_HEIGHT
+	_ellipse(Vector2.ZERO, 11.0 * grow * shadow_scale, 4.5 * grow * shadow_scale, Color(0, 0, 0, 0.18 * shadow_scale))
 
 	# tout ce qui suit est dessiné à l'échelle du mouton et retourné selon la direction
-	draw_set_transform(Vector2(0, -bob), 0.0, Vector2(_facing * grow, grow))
+	draw_set_transform(Vector2(0, -bob - _lift), 0.0, Vector2(_facing * grow, grow))
 
 	# pattes
 	draw_rect(Rect2(-6, -6, 3, 6), FACE)
@@ -266,8 +264,8 @@ func _draw() -> void:
 
 	draw_set_transform(Vector2.ZERO)
 
-	if hovered:
-		draw_arc(Vector2(0, -9), 18.0, 0.0, TAU, 28, Color.WHITE, 2.0)
+	if hovered or dragged:
+		draw_arc(Vector2(0, -9 - _lift), 18.0, 0.0, TAU, 28, Color.WHITE, 2.0)
 	_draw_badges(grow)
 
 
@@ -304,7 +302,7 @@ func _draw_badges(grow: float) -> void:
 			if can_milk():
 				badges.append({"text": "L", "color": Color("a8dcf0")})
 
-	var y := -32.0 * grow - 2.0
+	var y := -32.0 * grow - 2.0 - _lift
 	var x := -(badges.size() - 1) * 8.0
 	for badge in badges:
 		var center := Vector2(x, y)
