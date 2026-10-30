@@ -97,6 +97,7 @@ func _build_tree() -> void:
 func _connect_signals() -> void:
 	farm_map.changed.connect(_refresh_fences)
 	Game.phase_changed.connect(_on_phase_changed)
+	Game.pause_changed.connect(_on_pause_changed)
 	Game.item_chosen.connect(_on_item_chosen)
 	build_controller.stamps_requested.connect(_on_stamps_requested)
 	build_controller.barrier_requested.connect(_on_barrier_requested)
@@ -172,9 +173,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed:
 		match (event as InputEventKey).keycode:
 			KEY_ESCAPE:
-				_cancel_or_clear()
-			KEY_F:
-				_follow_camera = true
+				# s'il n'y a rien à annuler, Échap ouvre le menu de pause
+				if not _cancel_current_action():
+					Game.set_paused(true)
+			KEY_P:
+				Game.set_paused(true)
 
 
 func _on_mouse_button(mouse: InputEventMouseButton) -> void:
@@ -187,16 +190,21 @@ func _on_mouse_button(mouse: InputEventMouseButton) -> void:
 			_panning = mouse.pressed
 		MOUSE_BUTTON_RIGHT:
 			if mouse.pressed:
-				_cancel_or_clear()
+				_cancel_current_action()
 		MOUSE_BUTTON_LEFT:
 			if mouse.pressed:
 				_on_left_click()
 
-func _cancel_or_clear() -> void:
+# Échap / clic droit : d'abord on repose le mouton qu'on tient, sinon on quitte le mode actif.
+# Renvoie false quand il n'y avait rien à annuler.
+func _cancel_current_action() -> bool:
 	if dragger.is_dragging():
 		dragger.cancel()
-	else:
+		return true
+	if Game.tool_id != &"walk":
 		Game.clear_mode()
+		return true
+	return false
 
 func _zoom(factor: float) -> void:
 	camera.zoom = (camera.zoom * factor).clamp(Vector2(0.5, 0.5), Vector2(2.4, 2.4))
@@ -232,6 +240,18 @@ func _night_click(cell: Vector2) -> void:
 	# déplacement au clic abandonné pour le moment au profit du drag & drop des moutons
 	# _walk_to(cell)
 
+
+# --- pause ---
+
+# En pause on sauvegarde, et on lâche tout ce qui dépend d'un bouton de souris : le
+# relâchement se produirait pendant la pause et le jeu ne le verrait jamais.
+func _on_pause_changed(paused: bool) -> void:
+	if not paused:
+		return
+	_panning = false
+	dragger.cancel()
+	save_game()
+	
 
 func _walk_to(cell: Vector2) -> void:
 	_follow_camera = true

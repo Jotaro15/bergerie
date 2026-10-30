@@ -9,3 +9,4 @@ func _ready() -> void:
 
 	# l'interface vient après le monde pour que le bonus quotidien soit déjà chargé
 	add_child(Hud.new())
+	add_child(PauseMenu.new())

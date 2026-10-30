@@ -5,6 +5,7 @@ extends Node
 signal money_changed(amount: int)
 signal day_changed(day: int)
 signal phase_changed(phase: int)
+signal pause_changed(paused: bool)
 signal stats_changed
 signal toast(message: String)
 signal mode_changed
@@ -23,6 +24,7 @@ const MOVE_KEYS := {
 
 var money: int = Config.START_MONEY
 var day: int = 1
+var paused := false
 var phase: Phase = Phase.DAY
 var last_bonus_unix: int = 0
 
@@ -81,8 +83,23 @@ func spend(amount: int) -> bool:
 func price_multiplier() -> float:
 	return 1.0 + minf(float(charm), 30.0) * 0.01
 
+## Met le jeu en pause en gelant tout l'arbre de scènes. Seuls les nœuds en
+## PROCESS_MODE_ALWAYS (le menu de pause) continuent de réagir.
+func set_paused(value: bool) -> void:
+	if value == paused:
+		return
+	paused = value
+	get_tree().paused = value
+	pause_changed.emit(value)
+
+
+func toggle_pause() -> void:
+	set_paused(not paused)
+
 
 func toggle_phase() -> void:
+	if paused:
+		return
 	if phase == Phase.DAY:
 		phase = Phase.NIGHT
 	else:

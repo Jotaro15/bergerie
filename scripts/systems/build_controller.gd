@@ -28,6 +28,7 @@ var _last_preview_key := ""
 
 func _ready() -> void:
 	Game.mode_changed.connect(_on_mode_changed)
+	Game.pause_changed.connect(func(_paused: bool) -> void: _dragging = false)
 	set_process(false)
 
 
@@ -48,6 +49,8 @@ func _input(event: InputEvent) -> void:
 
 	if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ESCAPE:
 		Game.clear_mode()
+		# sans ça, le monde recevrait le même Échap et ouvrirait la pause dans la foulée
+		get_viewport().set_input_as_handled()
 		return
 
 	if not event is InputEventMouseButton:

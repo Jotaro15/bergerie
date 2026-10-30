@@ -105,6 +105,11 @@ func _build_top_bar() -> PanelContainer:
 	shop_button.pressed.connect(_toggle_shop)
 	row.add_child(shop_button)
 
+	var pause_button := Button.new()
+	pause_button.text = "Pause"
+	pause_button.pressed.connect(Game.toggle_pause)
+	row.add_child(pause_button)
+	
 	_phase_button = Button.new()
 	_phase_button.pressed.connect(Game.toggle_phase)
 	row.add_child(_phase_button)
