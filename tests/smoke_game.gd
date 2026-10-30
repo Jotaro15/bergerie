@@ -1,7 +1,7 @@
 extends Node
 ## Test d'intégration : lance vraiment le jeu et déroule une partie en accéléré.
 ## Usage : godot --headless --fixed-fps 60 res://tests/smoke_game.tscn
-## (--fixed-fps pour que chaque frame compte 1/60 s même si ça tourne beaucoup plus vite) -- Tests repris à l'IA (valable pr tout le dossier tests)!!!
+## (--fixed-fps pour que chaque frame compte 1/60 s même si ça tourne beaucoup plus vite)
 
 var _passed := 0
 var _failed := 0
@@ -29,6 +29,9 @@ func _run() -> void:
 	await _test_start()
 	await _test_day_tools()
 	await _test_shop_and_building()
+	await _test_drag_and_drop()
+	await _test_pause()
+	_test_needs()
 	await _test_labor_and_vet()
 	await _test_escape_and_return()
 	await _test_night_wolves()
@@ -174,6 +177,206 @@ func _test_shop_and_building() -> void:
 	Game.toggle_phase()
 	await _frames(5)
 	_check(_world.farm_map.capacity_of(region) == capacity_before + 6, "la bergerie ajoute 6 places")
+
+
+func _test_drag_and_drop() -> void:
+	# à ce stade la barrière a coupé l'enclos en deux : habitat de gauche (x < 48) et de droite
+	var dragger := _world.dragger
+	var left := _world.farm_map.region_id(Vector2i(40, 40))
+	var right := _world.farm_map.region_id(Vector2i(55, 40))
+	_check(left >= 0 and right >= 0 and left != right, "deux habitats pour le drag & drop")
+
+	var sheep: Sheep = _world.flock.sheep_in_region(left)[0]
+	var origin := sheep.cell_pos
+
+	# attraper puis déposer dans l'autre habitat
+	_check(dragger.begin(_point_on(sheep)), "on attrape le mouton")
+	_check(dragger.is_dragging() and sheep.dragged, "le mouton est porté")
+	dragger.carry_to(Iso.to_screen(Vector2(55.5, 40.5)) - SheepDragger.GRAB_OFFSET)
+	_check(sheep.cell_pos == origin, "pendant le glissé, la case d'origine est conservée")
+	dragger.drop()
+	_check(not dragger.is_dragging() and not sheep.dragged, "le mouton est lâché")
+	_check(sheep.region() == right, "déposé dans l'autre habitat")
+
+	# hors de tout enclos : refusé, le mouton reste où il est
+	var before := sheep.cell_pos
+	dragger.begin(_point_on(sheep))
+	dragger.carry_to(Iso.to_screen(Vector2(5.5, 5.5)))
+	dragger.drop()
+	_check(sheep.region() == right and sheep.cell_pos == before, "dépôt hors enclos refusé")
+
+	# annuler avec Échap
+	dragger.begin(_point_on(sheep))
+	dragger.carry_to(Iso.to_screen(Vector2(40.5, 40.5)))
+	dragger.cancel()
+	_check(sheep.region() == right and not sheep.dragged, "annulation : le mouton reste en place")
+
+	# un mouton échappé qu'on dépose dans un enclos y est ramené
+	var runaway: Sheep = _world.flock.sheep_in_region(left)[0]
+	runaway.place = Sheep.Place.ESCAPED
+	runaway.place_at(Vector2(5.5, 5.5))
+	dragger.begin(_point_on(runaway))
+	dragger.carry_to(Iso.to_screen(Vector2(40.5, 40.5)) - SheepDragger.GRAB_OFFSET)
+	dragger.drop()
+	_check(runaway.place == Sheep.Place.PEN and runaway.region() == left, "un échappé déposé dans un enclos est ramené")
+
+	# un enclos plein refuse de nouveaux arrivants
+	var capacity := _world.farm_map.capacity_of(left)
+	var fillers: Array[Sheep] = []
+	while _world.flock.sheep_in_region(left).size() < capacity:
+		fillers.append(_world.flock.create(
+				Sheep.Sex.EWE, &"white", Config.LAMB_STAGES, Sheep.Place.PEN, Vector2(40.5, 40.5)))
+	var visitor: Sheep = _world.flock.sheep_in_region(right)[0]
+	var visitor_cell := visitor.cell_pos
+	dragger.begin(_point_on(visitor))
+	dragger.carry_to(Iso.to_screen(Vector2(40.5, 40.5)) - SheepDragger.GRAB_OFFSET)
+	dragger.drop()
+	_check(visitor.region() == right and visitor.cell_pos == visitor_cell, "enclos plein : dépôt refusé")
+
+	# on retire les moutons ajoutés pour remplir l'enclos, pour ne pas fausser la suite
+	for filler in fillers:
+		filler.remove_from_game()
+	await _frames(5)
+
+
+func _press(keycode: Key) -> void:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.pressed = true
+	Input.parse_input_event(event)
+	await _frames(3)
+
+
+func _test_pause_keys() -> void:
+	Game.set_tool(&"feed")
+	await _press(KEY_ESCAPE)
+	_check(Game.tool_id == &"walk" and not Game.paused, "Échap annule d'abord l'outil, sans pause")
+	await _press(KEY_ESCAPE)
+	_check(Game.paused, "Échap sans rien à annuler ouvre la pause")
+	await _press(KEY_ESCAPE)
+	_check(not Game.paused, "Échap en pause reprend la partie")
+	await _press(KEY_P)
+	_check(Game.paused, "P met en pause")
+	await _press(KEY_P)
+	_check(not Game.paused, "P en pause reprend la partie")
+
+	# en construction, un seul Échap ne doit annuler que la construction
+	Game.set_build_item(ShopCatalog.by_id(&"tree"))
+	await _press(KEY_ESCAPE)
+	_check(Game.build_item == null and not Game.paused, "Échap en construction n'ouvre pas la pause")
+
+
+func _test_pause() -> void:
+	await _test_pause_keys()
+	var positions := {}
+	for sheep in _world.flock.sheep_list:
+		positions[sheep] = sheep.position
+
+	SaveFile.delete()
+	Game.set_paused(true)
+	_check(get_tree().paused and Game.paused, "le jeu est en pause")
+	_check(SaveFile.read().has("sheep"), "la partie est sauvegardée en entrant en pause")
+
+	await _frames(240)
+	var frozen := true
+	for sheep in positions:
+		frozen = frozen and sheep.position == positions[sheep]
+	_check(frozen, "les moutons ne bougent pas en pause")
+
+	var phase := Game.phase
+	Game.toggle_phase()
+	_check(Game.phase == phase, "pas de changement de jour/nuit en pause")
+
+	Game.set_paused(false)
+	_check(not get_tree().paused and not Game.paused, "le jeu reprend")
+	await _frames(600)
+	var moved := false
+	for sheep in positions:
+		if is_instance_valid(sheep) and sheep.position != positions[sheep]:
+			moved = true
+	_check(moved, "les moutons rebougent après la pause")
+
+
+func _has(sheep: Sheep, need: NeedIcons.Need) -> bool:
+	return sheep.needs().has(need)
+
+
+# Les icônes au-dessus des moutons doivent dire vrai : elles sont là quand l'action
+# correspondante est possible, et seulement à ce moment-là.
+func _test_needs() -> void:
+	var existing := _world.flock.sheep_list.duplicate()
+	Game.money = 5000
+	var flock := _world.flock
+	# écartés les uns des autres pour que le clic tombe sur le bon mouton
+	var ewe := flock.create(Sheep.Sex.EWE, &"white", Config.LAMB_STAGES, Sheep.Place.PEN, Vector2(38.5, 38.5))
+	var ram := flock.create(Sheep.Sex.RAM, &"white", Config.LAMB_STAGES, Sheep.Place.PEN, Vector2(42.5, 38.5))
+	var lamb := flock.create(Sheep.Sex.EWE, &"white", 0, Sheep.Place.PEN, Vector2(38.5, 42.5))
+	for sheep in [ewe, ram, lamb]:
+		sheep.fed = false
+		sheep.last_shear_day = -99
+		sheep.last_milk_day = -99
+		sheep.last_bottle_day = -99
+
+	# à jeun : seulement la faim (et le biberon pour l'agneau)
+	_check(ewe.needs() == [NeedIcons.Need.HUNGRY], "brebis à jeun : faim seulement")
+	_check(_has(lamb, NeedIcons.Need.HUNGRY) and _has(lamb, NeedIcons.Need.BOTTLE), "agneau à jeun : faim et biberon")
+
+	# nourris : on peut tondre, traire la brebis, mais pas traire le bélier
+	_world.tools.apply(&"feed", _point_on(ewe))
+	_check(not _has(ewe, NeedIcons.Need.HUNGRY), "plus de faim après le foin")
+	_check(_has(ewe, NeedIcons.Need.SHEAR) and _has(ewe, NeedIcons.Need.MILK), "brebis nourrie : tonte et traite")
+	_check(_has(ram, NeedIcons.Need.SHEAR) and not _has(ram, NeedIcons.Need.MILK), "bélier : tonte, pas de traite")
+	_check(not _has(lamb, NeedIcons.Need.SHEAR) and not _has(lamb, NeedIcons.Need.MILK), "agneau : ni tonte ni traite")
+
+	# l'icône disparaît quand l'action a été faite, et l'action rapportait bien
+	var money := Game.money
+	_world.tools.apply(&"milk", _point_on(ewe))
+	_check(Game.money > money and not _has(ewe, NeedIcons.Need.MILK), "traite : gain, puis plus d'icône")
+	money = Game.money
+	_world.tools.apply(&"shear", _point_on(ewe))
+	_check(Game.money > money and not _has(ewe, NeedIcons.Need.SHEAR), "tonte : gain, puis plus d'icône")
+	money = Game.money
+	_world.tools.apply(&"grow", _point_on(lamb))
+	_check(Game.money < money and not _has(lamb, NeedIcons.Need.BOTTLE), "biberon : payé, puis plus d'icône")
+
+	# gestation, mise bas, blessure
+	ewe.pregnant = true
+	_check(_has(ewe, NeedIcons.Need.PREGNANT) and not _has(ewe, NeedIcons.Need.LABOR), "gestante")
+	ewe.in_labor = true
+	_check(_has(ewe, NeedIcons.Need.LABOR) and not _has(ewe, NeedIcons.Need.PREGNANT), "mise bas : plus l'icône de gestation")
+	money = Game.money
+	_world.tools.apply(&"vet", _point_on(ewe))
+	_check(Game.money < money and not _has(ewe, NeedIcons.Need.LABOR), "le véto règle la mise bas")
+
+	ewe.pregnant = true
+	ewe.wound()
+	_check(_has(ewe, NeedIcons.Need.WOUNDED) and _has(ewe, NeedIcons.Need.PREGNANT), "blessée et gestante : les deux icônes")
+	money = Game.money
+	_world.tools.apply(&"vet", _point_on(ewe))
+	_check(Game.money < money and not _has(ewe, NeedIcons.Need.WOUNDED), "le véto soigne la blessure")
+
+	# hors de l'enclos
+	ram.place = Sheep.Place.ESCAPED
+	_check(_has(ram, NeedIcons.Need.ESCAPED), "échappé : à ramener")
+	lamb.place = Sheep.Place.STRAY
+	_check(lamb.needs() == [NeedIcons.Need.STRAY], "égaré : une seule icône")
+	lamb.place = Sheep.Place.PEN
+	ram.place = Sheep.Place.PEN
+
+	# la nuit, plus de soins de jour, mais une blessure reste signalée
+	ewe.pregnant = false
+	ewe.fed = false
+	ewe.wound()
+	Game.phase = Game.Phase.NIGHT
+	_check(ewe.needs() == [NeedIcons.Need.WOUNDED], "nuit : seule la blessure est signalée")
+	ewe.pregnant = true
+	_check(_has(ewe, NeedIcons.Need.PREGNANT), "la gestation reste visible la nuit")
+	Game.phase = Game.Phase.DAY
+
+	# on remet le troupeau comme avant ce test
+	for sheep in flock.sheep_list.duplicate():
+		if not existing.has(sheep):
+			sheep.remove_from_game()
 
 
 func _test_labor_and_vet() -> void:

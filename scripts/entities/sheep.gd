@@ -42,6 +42,7 @@ var dragged := false:   # le joueur le tient à la souris (drag & drop)
 		z_index = 20 if value else 0   # un mouton porté passe devant les autres
 
 var _lift := 0.0
+var _shown_needs: Array[NeedIcons.Need] = []   # ce qui est affiché en ce moment
 var _target := Vector2.ZERO
 var _moving := false
 var _wait := 0.0
@@ -81,6 +82,38 @@ func can_shear() -> bool:
 func can_milk() -> bool:
 	return sex == Sex.EWE and is_adult() and fed and last_milk_day != Game.day
 
+## Ce dont le mouton a besoin en ce moment, du plus urgent au moins urgent. C'est ce
+## qui s'affiche sous forme d'icônes au-dessus de lui ; les conditions reprennent
+## celles des outils de jour (ToolController), pour que l'icône soit là quand
+## l'action est possible et seulement à ce moment-là.
+func needs() -> Array[NeedIcons.Need]:
+	var result: Array[NeedIcons.Need] = []
+	if place == Place.STRAY:
+		# un égaré n'est pas encore dans le troupeau : on ne peut que le rejoindre
+		result.append(NeedIcons.Need.STRAY)
+		return result
+
+	if place == Place.ESCAPED:
+		result.append(NeedIcons.Need.ESCAPED)
+	if in_labor:
+		result.append(NeedIcons.Need.LABOR)
+	if wounded:
+		result.append(NeedIcons.Need.WOUNDED)
+	if pregnant and not in_labor:
+		result.append(NeedIcons.Need.PREGNANT)
+
+	# nourrir, traire, tondre et biberon sont des actions de jour
+	if Game.is_day():
+		if not fed:
+			result.append(NeedIcons.Need.HUNGRY)
+		else:
+			if can_shear():
+				result.append(NeedIcons.Need.SHEAR)
+			if can_milk():
+				result.append(NeedIcons.Need.MILK)
+		if not is_adult() and last_bottle_day != Game.day:
+			result.append(NeedIcons.Need.BOTTLE)
+	return result
 
 func place_at(cell: Vector2) -> void:
 	cell_pos = cell
@@ -150,8 +183,13 @@ func _process(delta: float) -> void:
 			_pick_target()
 			_wait = randf_range(1.0, 4.0)
 
+	# les icônes se mettent à jour dès que le besoin change (pas besoin d'attendre le prochain rafraîchissement régulier)
+	var current_needs := needs()
+	var needs_changed := current_needs != _shown_needs
+	_shown_needs = current_needs
+
 	_redraw_in -= delta
-	if _moving or dragged or lifting or _redraw_in <= 0.0:
+	if _moving or dragged or lifting or needs_changed or _redraw_in <= 0.0:
 		_redraw_in = 0.3
 		queue_redraw()
 
@@ -284,30 +322,11 @@ func _ellipse(center: Vector2, rx: float, ry: float, color: Color) -> void:
 	draw_colored_polygon(points, color)
 
 
-# Petites pastilles au-dessus du mouton pour voir d'un coup d'oeil ce qu'il lui faut.
+# Les icônes de besoins, centrées au-dessus du mouton (voir NeedIcons).
 func _draw_badges(grow: float) -> void:
-	var badges: Array[Dictionary] = []
-	if place == Place.STRAY:
-		badges.append({"text": "?", "color": Color("8fd3f4")})
-	if wounded or in_labor:
-		badges.append({"text": "+", "color": Color("e0504a")})
-	elif pregnant:
-		badges.append({"text": "♥", "color": Color("f2a0b8")})
-	if Game.is_day() and place != Place.STRAY:
-		if not fed:
-			badges.append({"text": "!", "color": Color("f2a65a")})
-		else:
-			if can_shear():
-				badges.append({"text": "T", "color": Color("f7d94c")})
-			if can_milk():
-				badges.append({"text": "L", "color": Color("a8dcf0")})
-
-	var y := -32.0 * grow - 2.0 - _lift
-	var x := -(badges.size() - 1) * 8.0
-	for badge in badges:
-		var center := Vector2(x, y)
-		draw_circle(center, 7.5, OUTLINE)
-		draw_circle(center, 6.2, badge["color"])
-		draw_string(ThemeDB.fallback_font, center + Vector2(-3.5, 4.5), badge["text"],
-				HORIZONTAL_ALIGNMENT_LEFT, 8, 12, OUTLINE)
-		x += 16.0
+	var shown := needs()
+	var y := -32.0 * grow - 6.0 - _lift
+	var x := -(shown.size() - 1) * NeedIcons.SPACING / 2.0
+	for need in shown:
+		NeedIcons.draw(self, need, Vector2(x, y))
+		x += NeedIcons.SPACING

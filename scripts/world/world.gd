@@ -178,6 +178,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					Game.set_paused(true)
 			KEY_P:
 				Game.set_paused(true)
+			KEY_F:
+				_follow_camera = true
 
 
 func _on_mouse_button(mouse: InputEventMouseButton) -> void:
@@ -220,6 +222,8 @@ func _on_left_click() -> void:
 		# déplacement au clic abandonné pour le moment au profit du drag & drop des moutons
 		# _walk_to(cell)
 		dragger.begin(point)
+	else:
+		tools.apply(Game.tool_id, point)
 
 
 # La nuit : cliquer sur un chantier quand on est dessus le fait avancer,
@@ -251,7 +255,7 @@ func _on_pause_changed(paused: bool) -> void:
 	_panning = false
 	dragger.cancel()
 	save_game()
-	
+
 
 func _walk_to(cell: Vector2) -> void:
 	_follow_camera = true
