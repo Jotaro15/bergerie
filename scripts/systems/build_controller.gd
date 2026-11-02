@@ -28,6 +28,7 @@ var _last_preview_key := ""
 
 func _ready() -> void:
 	Game.mode_changed.connect(_on_mode_changed)
+	Game.pause_changed.connect(func(_paused: bool) -> void: _dragging = false)
 	set_process(false)
 
 
@@ -48,6 +49,8 @@ func _input(event: InputEvent) -> void:
 
 	if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ESCAPE:
 		Game.clear_mode()
+		# sans ça, le monde recevrait le même Échap et ouvrirait la pause dans la foulée
+		get_viewport().set_input_as_handled()
 		return
 
 	if not event is InputEventMouseButton:
@@ -93,7 +96,7 @@ func _begin(button: int) -> void:
 func _finish() -> void:
 	_dragging = false
 	if item.kind == ShopItem.Kind.BARRIER:
-		var edges := _barrier_line(_start, _mouse_vertex())
+		var edges := barrier_line(_start, _mouse_vertex())
 		if not edges.is_empty():
 			barrier_requested.emit(edges, _drag_button == MOUSE_BUTTON_RIGHT)
 		return
@@ -172,7 +175,7 @@ func _stamp_is_valid(rect: Rect2i) -> bool:
 
 
 # Les segments d'une barrière tracée en ligne droite entre deux sommets.
-func _barrier_line(from: Vector2i, to: Vector2i) -> Array[Vector3i]:
+static func barrier_line(from: Vector2i, to: Vector2i) -> Array[Vector3i]:
 	var edges: Array[Vector3i] = []
 	var delta := to - from
 	if absi(delta.x) >= absi(delta.y):
@@ -226,7 +229,7 @@ func _draw_barrier_preview() -> void:
 
 	if not _dragging:
 		return
-	var edges := _barrier_line(_start, vertex)
+	var edges := barrier_line(_start, vertex)
 	var removing := _drag_button == MOUSE_BUTTON_RIGHT
 
 	# on ne recalcule la validité que quand la ligne change (flood fill pas gratuit)

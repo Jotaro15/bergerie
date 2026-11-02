@@ -12,8 +12,15 @@ const TOOLS := [
 	[&"breed", "Reproduire", "Clique sur un mouton : il cherche un partenaire dans son enclos."],
 	[&"grow", "Biberon", "Clique sur un agneau pour le faire grandir (une fois par jour, 5 pièces)."],
 	[&"vet", "Vétérinaire", "Clique sur une brebis qui met bas ou sur un mouton blessé."],
-	[&"sell", "Vendre", "Clique sur un mouton pour le vendre."],
 ]
+
+# Les modes de revente se lancent depuis l'onglet « Vendre » de la boutique, pas depuis la barre d'outils.
+const SELL_HINTS := {
+	&"sell": "Clique sur un mouton pour le vendre (adulte > agneau, blessé = bien moins). Clic droit ou Échap : quitter.",
+	&"sell_deco": "Clique sur une décoration pour la revendre. Clic droit ou Échap : quitter.",
+	&"sell_fence": "Glisse le long d'une barrière intérieure pour la vendre. Clic droit ou Échap : quitter.",
+	&"demolish": "Clique sur une bergerie ou un abreuvoir pour planifier sa démolition (re-clique pour annuler). Elle se fait la nuit, rien n'est récupéré.",
+}
 
 const NIGHT_HINT := "Nuit : approche-toi des loups pour les faire fuir, clique sur les chantiers pour les construire (en étant dessus) et rattrape les moutons égarés."
 
@@ -105,6 +112,11 @@ func _build_top_bar() -> PanelContainer:
 	shop_button.pressed.connect(_toggle_shop)
 	row.add_child(shop_button)
 
+	var pause_button := Button.new()
+	pause_button.text = "Pause"
+	pause_button.pressed.connect(Game.toggle_pause)
+	row.add_child(pause_button)
+	
 	_phase_button = Button.new()
 	_phase_button.pressed.connect(Game.toggle_phase)
 	row.add_child(_phase_button)
@@ -208,7 +220,7 @@ func _refresh() -> void:
 	_money.text = "Pièces : %d" % Game.money
 	_day.text = "Jour %d  -  %s" % [Game.day, "Jour" if Game.is_day() else "Nuit"]
 	_flock.text = "Troupeau : %d" % Game.flock_size
-	_wool.text = "Laines : %d/%d" % [Game.wool_found.size(), WoolRegistry.all().size()]
+	_wool.text = "Laine : %d   (types %d/%d)" % [Game.total_wool(), Game.wool_found.size(), WoolRegistry.all().size()]
 
 	var alert_parts: Array[String] = []
 	if Game.labor_count > 0:
@@ -249,6 +261,8 @@ func _hint_text() -> String:
 				return "Glisse pour tracer une barrière (clic droit + glisser pour en retirer). Sous-enclos de 4x4 minimum."
 			_:
 				return "Clique ou glisse pour planifier. La nuit, va sur le chantier et clique pour construire. Clic droit : annuler."
+	if SELL_HINTS.has(Game.tool_id):
+		return SELL_HINTS[Game.tool_id]
 	for tool_def in TOOLS:
 		if tool_def[0] == Game.tool_id:
 			return tool_def[2]

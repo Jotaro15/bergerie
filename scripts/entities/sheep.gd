@@ -35,13 +35,18 @@ var wounded_day := 0
 var cell_pos := Vector2.ZERO
 var targeted := false   # un loup l'a déjà dans le viseur
 var held := false       # un loup est en train de le croquer, il ne bouge plus
-var hovered := false
+var hovered := false:
+	set(value):
+		if value != hovered:
+			hovered = value
+			queue_redraw()
 var dragged := false:   # le joueur le tient à la souris (drag & drop)
 	set(value):
 		dragged = value
 		z_index = 20 if value else 0   # un mouton porté passe devant les autres
 
 var _lift := 0.0
+var _shown_needs: Array[NeedIcons.Need] = []   # ce qui est affiché en ce moment
 var _target := Vector2.ZERO
 var _moving := false
 var _wait := 0.0
@@ -81,6 +86,38 @@ func can_shear() -> bool:
 func can_milk() -> bool:
 	return sex == Sex.EWE and is_adult() and fed and last_milk_day != Game.day
 
+## Ce dont le mouton a besoin en ce moment, du plus urgent au moins urgent. C'est ce
+## qui s'affiche sous forme d'icônes au-dessus de lui ; les conditions reprennent
+## celles des outils de jour (ToolController), pour que l'icône soit là quand
+## l'action est possible et seulement à ce moment-là.
+func needs() -> Array[NeedIcons.Need]:
+	var result: Array[NeedIcons.Need] = []
+	if place == Place.STRAY:
+		# un égaré n'est pas encore dans le troupeau : on ne peut que le rejoindre
+		result.append(NeedIcons.Need.STRAY)
+		return result
+
+	if place == Place.ESCAPED:
+		result.append(NeedIcons.Need.ESCAPED)
+	if in_labor:
+		result.append(NeedIcons.Need.LABOR)
+	if wounded:
+		result.append(NeedIcons.Need.WOUNDED)
+	if pregnant and not in_labor:
+		result.append(NeedIcons.Need.PREGNANT)
+
+	# nourrir, traire, tondre et biberon sont des actions de jour
+	if Game.is_day():
+		if not fed:
+			result.append(NeedIcons.Need.HUNGRY)
+		else:
+			if can_shear():
+				result.append(NeedIcons.Need.SHEAR)
+			if can_milk():
+				result.append(NeedIcons.Need.MILK)
+		if not is_adult() and last_bottle_day != Game.day:
+			result.append(NeedIcons.Need.BOTTLE)
+	return result
 
 func place_at(cell: Vector2) -> void:
 	cell_pos = cell
@@ -150,8 +187,13 @@ func _process(delta: float) -> void:
 			_pick_target()
 			_wait = randf_range(1.0, 4.0)
 
+	# les icônes se mettent à jour dès que le besoin change (pas besoin d'attendre le prochain rafraîchissement régulier)
+	var current_needs := needs()
+	var needs_changed := current_needs != _shown_needs
+	_shown_needs = current_needs
+
 	_redraw_in -= delta
-	if _moving or dragged or lifting or _redraw_in <= 0.0:
+	if _moving or dragged or lifting or needs_changed or _redraw_in <= 0.0:
 		_redraw_in = 0.3
 		queue_redraw()
 
@@ -267,6 +309,8 @@ func _draw() -> void:
 	if hovered or dragged:
 		draw_arc(Vector2(0, -9 - _lift), 18.0, 0.0, TAU, 28, Color.WHITE, 2.0)
 	_draw_badges(grow)
+	if hovered and Game.tool_id == &"sell":
+		_draw_price_tag()
 
 
 func _puffs(centers: Array, radius: float, color: Color) -> void:
@@ -284,30 +328,23 @@ func _ellipse(center: Vector2, rx: float, ry: float, color: Color) -> void:
 	draw_colored_polygon(points, color)
 
 
-# Petites pastilles au-dessus du mouton pour voir d'un coup d'oeil ce qu'il lui faut.
-func _draw_badges(grow: float) -> void:
-	var badges: Array[Dictionary] = []
-	if place == Place.STRAY:
-		badges.append({"text": "?", "color": Color("8fd3f4")})
-	if wounded or in_labor:
-		badges.append({"text": "+", "color": Color("e0504a")})
-	elif pregnant:
-		badges.append({"text": "♥", "color": Color("f2a0b8")})
-	if Game.is_day() and place != Place.STRAY:
-		if not fed:
-			badges.append({"text": "!", "color": Color("f2a65a")})
-		else:
-			if can_shear():
-				badges.append({"text": "T", "color": Color("f7d94c")})
-			if can_milk():
-				badges.append({"text": "L", "color": Color("a8dcf0")})
+# En mode vente, le prix s'affiche sous le mouton survolé.
+func _draw_price_tag() -> void:
+	var text := "Vendre : +%d" % Economy.sheep_price(self)
+	if wounded:
+		text += "  (blessé)"
+	var font := ThemeDB.fallback_font
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+	draw_rect(Rect2(-width / 2.0 - 6.0, 6.0, width + 12.0, 20.0), OUTLINE)
+	draw_string(font, Vector2(-width / 2.0, 21.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
+			Color("ff9a8a") if wounded else Color.WHITE)
 
-	var y := -32.0 * grow - 2.0 - _lift
-	var x := -(badges.size() - 1) * 8.0
-	for badge in badges:
-		var center := Vector2(x, y)
-		draw_circle(center, 7.5, OUTLINE)
-		draw_circle(center, 6.2, badge["color"])
-		draw_string(ThemeDB.fallback_font, center + Vector2(-3.5, 4.5), badge["text"],
-				HORIZONTAL_ALIGNMENT_LEFT, 8, 12, OUTLINE)
-		x += 16.0
+
+# Les icônes de besoins, centrées au-dessus du mouton (voir NeedIcons).
+func _draw_badges(grow: float) -> void:
+	var shown := needs()
+	var y := -32.0 * grow - 6.0 - _lift
+	var x := -(shown.size() - 1) * NeedIcons.SPACING / 2.0
+	for need in shown:
+		NeedIcons.draw(self, need, Vector2(x, y))
+		x += NeedIcons.SPACING

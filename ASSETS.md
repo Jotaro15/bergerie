@@ -51,6 +51,8 @@ Petite veille de potentiels pack graduits pour éviter d'utiliser le contenu gé
 
 []Pouvoir nommer les moutons et au passage de la souris, voir leur noms (permet un meilleur suivi des animaux)
 
+[] empêcher le drag & drop des moutons qui n'appartiennent pas au troupeau. 
+
 ## Phase 2:
 
 [] Faire les couleurs de laines différentes, les motifs de laine, et les races différentes
