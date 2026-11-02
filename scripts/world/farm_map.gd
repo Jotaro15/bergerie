@@ -103,6 +103,15 @@ func add_capacity_bonus(cell: Vector2i, bonus: int) -> void:
 	capacity_bonus[cell] = capacity_bonus.get(cell, 0) + bonus
 
 
+## L'inverse d'add_capacity_bonus, quand un bâtiment est démoli.
+func remove_capacity_bonus(cell: Vector2i, bonus: int) -> void:
+	var left: int = capacity_bonus.get(cell, 0) - bonus
+	if left > 0:
+		capacity_bonus[cell] = left
+	else:
+		capacity_bonus.erase(cell)
+
+
 # --- barrières ---
 
 func has_barrier(edge: Vector3i) -> bool:

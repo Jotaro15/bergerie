@@ -20,5 +20,24 @@ var charm := 0              # chaque point de charme = +1% sur les gains (plafon
 var extra: Dictionary = {}  # sexe du mouton, rôle du chien...
 
 
+## Une copie indépendante (la boutique du jour change le prix et ajoute des infos).
+func copy() -> ShopItem:
+	var item := ShopItem.new()
+	item.id = id
+	item.kind = kind
+	item.shape = shape
+	item.tab = tab
+	item.title = title
+	item.description = description
+	item.price = price
+	item.size = size
+	item.build_clicks = build_clicks
+	item.color = color
+	item.capacity_bonus = capacity_bonus
+	item.charm = charm
+	item.extra = extra.duplicate()
+	return item
+
+
 func is_footprint_item() -> bool:
 	return kind == Kind.BUILDING or kind == Kind.DECORATION or kind == Kind.ENCLOSURE

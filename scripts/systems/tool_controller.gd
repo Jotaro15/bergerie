@@ -1,6 +1,6 @@
 class_name ToolController
 extends Node
-## Les outils de jour : nourrir, traire, tondre, reproduire, biberon, véto, vendre.
+## Les outils de jour : nourrir, traire, tondre, reproduire, biberon, véto, vendre un mouton.
 ## Chaque outil s'applique au clic sur un mouton (ou sur un enclos pour le foin).
 
 var flock: Flock
@@ -81,10 +81,12 @@ func _shear(sheep: Sheep) -> void:
 		var days_left := Config.SHEAR_DELAY_DAYS - (Game.day - sheep.last_shear_day)
 		Game.say("Tonte possible dans %d jour(s)." % days_left)
 	else:
+		# la laine va dans le stock (illimité), on la vend ensuite depuis la boutique
 		sheep.last_shear_day = Game.day
-		var gain := _scaled(WoolRegistry.price_of(sheep.wool_id))
-		Game.earn(gain)
-		Game.say("Tonte : +%d" % gain)
+		Game.add_wool(sheep.wool_id)
+		var type := WoolRegistry.get_type(sheep.wool_id)
+		Game.say("Tonte : +1 laine %s (stock : %d)" % [
+			type.display_name.to_lower() if type != null else "", Game.wool_count(sheep.wool_id)])
 
 
 func _breed(sheep: Sheep) -> void:
@@ -128,10 +130,7 @@ func _vet(sheep: Sheep) -> void:
 func _sell(sheep: Sheep) -> void:
 	if sheep == null:
 		return
-	var price := Config.SELL_ADULT if sheep.is_adult() else Config.SELL_LAMB
-	if sheep.wounded:
-		price /= 2
-	price = _scaled(price)
+	var price := Economy.sheep_price(sheep)
 	Game.earn(price)
 	Game.say("Mouton vendu : +%d" % price)
 	sheep.remove_from_game()

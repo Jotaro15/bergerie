@@ -35,7 +35,11 @@ var wounded_day := 0
 var cell_pos := Vector2.ZERO
 var targeted := false   # un loup l'a déjà dans le viseur
 var held := false       # un loup est en train de le croquer, il ne bouge plus
-var hovered := false
+var hovered := false:
+	set(value):
+		if value != hovered:
+			hovered = value
+			queue_redraw()
 var dragged := false:   # le joueur le tient à la souris (drag & drop)
 	set(value):
 		dragged = value
@@ -305,6 +309,8 @@ func _draw() -> void:
 	if hovered or dragged:
 		draw_arc(Vector2(0, -9 - _lift), 18.0, 0.0, TAU, 28, Color.WHITE, 2.0)
 	_draw_badges(grow)
+	if hovered and Game.tool_id == &"sell":
+		_draw_price_tag()
 
 
 func _puffs(centers: Array, radius: float, color: Color) -> void:
@@ -320,6 +326,18 @@ func _ellipse(center: Vector2, rx: float, ry: float, color: Color) -> void:
 		var a := TAU * i / 18.0
 		points.append(center + Vector2(cos(a) * rx, sin(a) * ry))
 	draw_colored_polygon(points, color)
+
+
+# En mode vente, le prix s'affiche sous le mouton survolé.
+func _draw_price_tag() -> void:
+	var text := "Vendre : +%d" % Economy.sheep_price(self)
+	if wounded:
+		text += "  (blessé)"
+	var font := ThemeDB.fallback_font
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+	draw_rect(Rect2(-width / 2.0 - 6.0, 6.0, width + 12.0, 20.0), OUTLINE)
+	draw_string(font, Vector2(-width / 2.0, 21.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
+			Color("ff9a8a") if wounded else Color.WHITE)
 
 
 # Les icônes de besoins, centrées au-dessus du mouton (voir NeedIcons).

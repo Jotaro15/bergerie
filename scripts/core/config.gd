@@ -25,6 +25,10 @@ const VET_COST_WOUND := 60
 const SELL_ADULT := 80
 const SELL_LAMB := 40
 const BARRIER_PRICE := 5
+const WOUNDED_FACTOR := 0.25  # un mouton blessé se vend au quart du prix (est-ce que je garde ça ?)
+const RESALE_RATIO := 0.4 # décorations et clôtures reprises à 40 % du prix d'achat.
+const DAILY_DISCOUNT := 0.85
+const DAILY_WOOL_PREMIUM := 6 # supplément par point de valeur de laine au-dessus du blanc
 
 # --- vie du troupeau (en jours de jeu) ---
 const SHEAR_DELAY_DAYS := 3
