@@ -43,6 +43,17 @@ static func build() -> Theme:
 		theme.set_color(color_name, "Button", PLUM)
 	theme.set_color("font_disabled_color", "Button", Color("8c7a83"))
 
+	# le champ de quantité de l'onglet Vendre (SpinBox) utilise un LineEdit
+	var field := box(Color.WHITE, PLUM, 8, 2)
+	field.shadow_size = 0
+	theme.set_stylebox("normal", "LineEdit", field)
+	theme.set_stylebox("focus", "LineEdit", box(Color.WHITE, TEAL, 8, 2))
+	theme.set_stylebox("read_only", "LineEdit", box(Color("e9e1e4"), Color("8c7a83"), 8, 2))
+	theme.set_color("font_color", "LineEdit", PLUM)
+	theme.set_color("font_uneditable_color", "LineEdit", Color("8c7a83"))
+	theme.set_color("caret_color", "LineEdit", PLUM)
+	theme.set_color("selection_color", "LineEdit", TEAL.lightened(0.4))
+
 	theme.set_stylebox("panel", "PanelContainer", box(CREAM, WOOD_DARK, 14, 4))
 	theme.set_color("font_color", "Label", PLUM)
 	return theme

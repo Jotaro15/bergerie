@@ -2,12 +2,16 @@ class_name ConstructionSite
 extends Node2D
 ## Un chantier planifié de jour. La nuit, il faut se tenir dessus et cliquer
 ## autant de fois que nécessaire (build_clicks) pour le terminer.
+## Une démolition fonctionne exactement pareil : le bâtiment ne disparaît qu'une
+## fois tous les clics donnés, de nuit, et il ne rend aucune ressource.
 
 signal completed(site: ConstructionSite)
 
 var item: ShopItem
 var rect: Rect2i
 var clicks_done := 0
+var demolish := false # true = chantier de démolition
+var building: Building = null  # le bâtiment à démolir
 var cell_pos := Vector2.ZERO   # centre du chantier, en cases
 
 var _flash := 0.0
@@ -59,21 +63,29 @@ func _draw() -> void:
 
 	var night := not Game.is_day()
 	var fill := Color(0.45, 0.72, 1.0, 0.28)
+	if demolish:
+		fill = Color(0.92, 0.32, 0.3, 0.26)
 	if night:
 		fill = Color(1.0, 0.85, 0.35, 0.28 + 0.12 * sin(_pulse) + _flash * 0.4)
+		if demolish:
+			fill = Color(1.0, 0.45, 0.3, 0.3 + 0.12 * sin(_pulse) + _flash * 0.4)
 	draw_colored_polygon(poly, fill)
 
 	var line_color := Color("f7c948") if night else Color("6aa8e8")
+	if demolish:
+		line_color = Color("ff8a4a") if night else Color("e06a6a")
 	for i in poly.size():
 		draw_dashed_line(poly[i], poly[(i + 1) % poly.size()], line_color, 2.5, 8.0)
 
 	# nom + avancement au centre
 	var font := ThemeDB.fallback_font
 	var label := "%s  %d/%d" % [item.title, clicks_done, item.build_clicks]
+	if demolish:
+		label = "Démolition  %d/%d" % [clicks_done, item.build_clicks]
 	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 	draw_rect(Rect2(-width / 2.0 - 6.0, -22.0, width + 12.0, 20.0), Color(0.35, 0.24, 0.29, 0.85))
 	draw_string(font, Vector2(-width / 2.0, -8.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 
 	var ratio := float(clicks_done) / float(item.build_clicks)
 	draw_rect(Rect2(-24.0, 2.0, 48.0, 6.0), Color(0.35, 0.24, 0.29, 0.85))
-	draw_rect(Rect2(-23.0, 3.0, 46.0 * ratio, 4.0), Color("8fd96b"))
+	draw_rect(Rect2(-23.0, 3.0, 46.0 * ratio, 4.0), Color("ff8a6b") if demolish else Color("8fd96b"))

@@ -76,7 +76,7 @@ func _draw() -> void:
 			draw_circle(c + Vector2(0, -1), 4.0, PLUM)
 			draw_rect(Rect2(c.x - 14.0, c.y + 8.0, 28.0, 5.0), item.color)
 		ShopItem.Shape.SHEEP:
-			var wool := Color("fbf8f1")
+			var wool: Color = item.extra.get("wool_color", Color("fbf8f1"))
 			for offset in [Vector2(-12, -8), Vector2(0, -14), Vector2(12, -8), Vector2(-6, 0), Vector2(8, 0)]:
 				draw_circle(c + offset, 13.0, PLUM)
 			for offset in [Vector2(-12, -8), Vector2(0, -14), Vector2(12, -8), Vector2(-6, 0), Vector2(8, 0)]:

@@ -23,6 +23,7 @@ var shepherd: Shepherd
 var camera: Camera2D
 var night_tint: CanvasModulate
 var dragger: SheepDragger
+var seller: SellController
 
 var _fences: Array[FenceSegment] = []
 var _buildings: Array[Building] = []
@@ -79,6 +80,11 @@ func _build_tree() -> void:
 	build_controller.z_index = 100
 	add_child(build_controller)
 
+	seller = SellController.new()
+	seller.map = farm_map
+	seller.z_index = 100
+	add_child(seller)
+
 	shepherd = Shepherd.new()
 	entities.add_child(shepherd)
 
@@ -102,6 +108,9 @@ func _connect_signals() -> void:
 	build_controller.stamps_requested.connect(_on_stamps_requested)
 	build_controller.barrier_requested.connect(_on_barrier_requested)
 	build_controller.land_requested.connect(_on_land_requested)
+	seller.decoration_sale_requested.connect(_on_decoration_sale_requested)
+	seller.demolition_toggled.connect(_on_demolition_toggled)
+	seller.fences_sale_requested.connect(_on_fences_sale_requested)
 
 
 ## Lance une partie : à partir d'une sauvegarde si on en a une, sinon neuve.
@@ -299,31 +308,45 @@ func _on_item_chosen(item: ShopItem) -> void:
 	if not Game.is_day():
 		Game.say("La boutique n'ouvre que de jour.")
 		return
+
+	# une offre de la boutique du jour a un stock limité
+	var daily: String = item.extra.get("daily", "")
+	if daily != "" and DailyShop.remaining(daily) <= 0:
+		Game.say("Cette offre est épuisée, reviens demain.")
+		return
+
+	var bought := true
 	match item.kind:
 		ShopItem.Kind.SHEEP:
-			_buy_sheep(item)
+			bought = _buy_sheep(item)
 		ShopItem.Kind.DOG:
-			_buy_dog(item)
+			bought = _buy_dog(item)
 		_:
 			Game.set_build_item(item)
+			return
+	if bought and daily != "":
+		DailyShop.consume(daily)
+		Game.stats_changed.emit()
 
 
-func _buy_sheep(item: ShopItem) -> void:
+func _buy_sheep(item: ShopItem) -> bool:
 	if not flock.has_room():
 		Game.say("Aucun enclos n'a de place libre !")
-		return
+		return false
 	if not Game.spend(item.price):
-		return
+		return false
 	var sex := Sheep.Sex.RAM if item.extra.get("sex") == "ram" else Sheep.Sex.EWE
-	flock.add_to_best_pen(sex, &"white")
+	flock.add_to_best_pen(sex, StringName(item.extra.get("wool", &"white")))
 	Game.say("%s ajouté(e) au troupeau." % item.title)
+	return true
 
 
-func _buy_dog(item: ShopItem) -> void:
+func _buy_dog(item: ShopItem) -> bool:
 	if not Game.spend(item.price):
-		return
+		return false
 	_spawn_dog(_role_from_name(item.extra.get("role", "protector")), shepherd.cell_pos + Vector2(1.5, 1.5))
 	Game.say("%s adopté !" % item.title)
+	return true
 
 
 func _spawn_dog(role: Dog.Role, cell: Vector2) -> void:
@@ -346,16 +369,26 @@ func _role_from_name(role_name: String) -> Dog.Role:
 # --- construction ---
 
 func _on_stamps_requested(item: ShopItem, rects: Array[Rect2i]) -> void:
+	var daily: String = item.extra.get("daily", "")
 	var planned := 0
 	for rect in rects:
+		if daily != "" and DailyShop.remaining(daily) <= 0:
+			Game.say("Plus d'exemplaire en stock aujourd'hui.")
+			break
 		if Game.money < item.price:
 			Game.say("Plus assez de pièces pour tout planifier.")
 			break
 		Game.spend(item.price)
 		_add_site(item, rect, 0)
+		if daily != "":
+			DailyShop.consume(daily)
 		planned += 1
 	if planned > 0:
 		Game.say("%d chantier(s) planifié(s), à construire la nuit." % planned)
+	if daily != "":
+		Game.stats_changed.emit()
+		if DailyShop.remaining(daily) <= 0:
+			Game.clear_mode()
 
 
 func _add_site(item: ShopItem, rect: Rect2i, clicks_done: int) -> void:
@@ -373,6 +406,11 @@ func _on_site_completed(site: ConstructionSite) -> void:
 	var rect := site.rect
 	site.queue_free()
 
+	if site.demolish:
+		_remove_building(site.building)
+		Game.say("%s démoli(e)." % item.title)
+		return
+
 	if item.kind == ShopItem.Kind.ENCLOSURE:
 		_mark(rect, false)
 		farm_map.add_pen(FarmMap.plot_of(rect.position))
@@ -388,10 +426,66 @@ func _spawn_building(item: ShopItem, rect: Rect2i) -> void:
 	building.rect = rect
 	entities.add_child(building)
 	_buildings.append(building)
+	_mark(rect, true)   # au chargement d'une sauvegarde, rien ne l'avait encore marqué
 
 	if item.capacity_bonus > 0:
 		farm_map.add_capacity_bonus(rect.position + rect.size / 2, item.capacity_bonus)
 	Game.charm += item.charm
+	Game.stats_changed.emit()
+
+
+# --- revente et démolition ---
+
+func _on_decoration_sale_requested(building: Building) -> void:
+	var gain := Economy.resale(building.item)
+	Game.earn(gain)
+	Game.say("%s vendu(e) : +%d" % [building.item.title, gain])
+	_remove_building(building)
+
+
+# Clic sur un bâtiment en mode démolition : on planifie la démolition, ou on l'annule
+# si elle l'était déjà. Le bâtiment reste en place jusqu'à ce que le chantier soit fini.
+func _on_demolition_toggled(building: Building) -> void:
+	var existing := seller.demolition_site_of(building)
+	if existing != null:
+		existing.remove_from_group("sites")
+		existing.queue_free()
+		Game.say("Démolition annulée.")
+		return
+	_add_demolition_site(building, 0)
+	Game.say("Démolition prévue : elle se fera cette nuit, rien ne sera récupéré.")
+
+
+func _add_demolition_site(building: Building, clicks_done: int) -> void:
+	var site := ConstructionSite.new()
+	site.item = building.item
+	site.rect = building.rect
+	site.clicks_done = clicks_done
+	site.demolish = true
+	site.building = building
+	site.z_index = 5   # le voile rouge doit se voir par-dessus le bâtiment qui est encore debout
+	site.completed.connect(_on_site_completed)
+	site_layer.add_child(site)
+
+
+func _on_fences_sale_requested(edges: Array[Vector3i]) -> void:
+	var removed := farm_map.remove_barriers(edges)
+	if removed > 0:
+		var gain := Economy.fence_resale(removed)
+		Game.earn(gain)
+		Game.say("%d clôture(s) vendue(s) : +%d" % [removed, gain])
+
+
+# Un bâtiment ou une décoration disparaît : on rend la place, la capacité et le charme.
+func _remove_building(building: Building) -> void:
+	var item := building.item
+	_buildings.erase(building)
+	building.remove_from_group("buildings")
+	_mark(building.rect, false)
+	if item.capacity_bonus > 0:
+		farm_map.remove_capacity_bonus(building.rect.position + building.rect.size / 2, item.capacity_bonus)
+	Game.charm = maxi(Game.charm - item.charm, 0)
+	building.queue_free()
 	Game.stats_changed.emit()
 
 
@@ -417,7 +511,7 @@ func _on_barrier_requested(edges: Array[Vector3i], remove: bool) -> void:
 	if remove:
 		var removed := farm_map.remove_barriers(edges)
 		if removed > 0:
-			Game.earn(removed * Config.BARRIER_PRICE / 2)
+			Game.earn(Economy.fence_resale(removed))
 		return
 
 	match farm_map.check_barriers(edges):
@@ -478,7 +572,8 @@ func save_game() -> void:
 	var sites := []
 	for node in get_tree().get_nodes_in_group("sites"):
 		var site := node as ConstructionSite
-		sites.append({"id": String(site.item.id), "rect": _rect_to_array(site.rect), "clicks": site.clicks_done})
+		sites.append({"id": String(site.item.id), "rect": _rect_to_array(site.rect),
+				"clicks": site.clicks_done, "demolish": site.demolish})
 
 	var dogs := []
 	for dog in _dogs:
@@ -508,8 +603,15 @@ func _load(data: Dictionary) -> void:
 
 	for entry: Dictionary in data.get("sites", []):
 		var item := ShopCatalog.by_id(StringName(entry["id"]))
-		if item != null:
-			_add_site(item, _rect_from_array(entry["rect"]), int(entry.get("clicks", 0)))
+		if item == null:
+			continue
+		var rect := _rect_from_array(entry["rect"])
+		if bool(entry.get("demolish", false)):
+			var building := _building_with_rect(rect)
+			if building != null:
+				_add_demolition_site(building, int(entry.get("clicks", 0)))
+		else:
+			_add_site(item, rect, int(entry.get("clicks", 0)))
 
 	for entry: Dictionary in data.get("sheep", []):
 		var sheep := flock.create(Sheep.Sex.EWE, &"white", Config.LAMB_STAGES, Sheep.Place.PEN, Vector2.ZERO)
@@ -523,6 +625,13 @@ func _load(data: Dictionary) -> void:
 	shepherd.teleport(Vector2(float(pos[0]), float(pos[1])))
 	flock.refresh_stats()
 	_spawn_coins()
+
+
+func _building_with_rect(rect: Rect2i) -> Building:
+	for building in _buildings:
+		if building.rect == rect:
+			return building
+	return null
 
 
 func _rect_to_array(rect: Rect2i) -> Array:

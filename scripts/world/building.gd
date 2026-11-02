@@ -9,6 +9,7 @@ var rect: Rect2i
 
 
 func _ready() -> void:
+	add_to_group("buildings")
 	# l'origine est le coin du bas : le tri en profondeur (y-sort) fonctionne bien comme ça
 	position = Iso.to_screen(Vector2(rect.end))
 

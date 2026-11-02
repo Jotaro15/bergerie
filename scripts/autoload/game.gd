@@ -39,6 +39,7 @@ var wounded_count := 0
 var charm := 0
 var owned_plots := 1
 var wool_found: Dictionary = {}
+var wool_stock: Dictionary = {}   # id de laine -> quantité récoltée, sans limite
 
 
 func _ready() -> void:
@@ -77,6 +78,33 @@ func spend(amount: int) -> bool:
 		return false
 	money -= amount
 	money_changed.emit(money)
+	return true
+
+
+# --- stock de laine ---
+
+func add_wool(id: StringName, amount := 1) -> void:
+	wool_stock[id] = wool_stock.get(id, 0) + amount
+	stats_changed.emit()
+
+
+func wool_count(id: StringName) -> int:
+	return int(wool_stock.get(id, 0))
+
+
+func total_wool() -> int:
+	var total := 0
+	for id: StringName in wool_stock:
+		total += int(wool_stock[id])
+	return total
+
+
+## Retire de la laine du stock. Renvoie false si on n'en a pas assez.
+func take_wool(id: StringName, amount: int) -> bool:
+	if amount <= 0 or wool_count(id) < amount:
+		return false
+	wool_stock[id] = wool_count(id) - amount
+	stats_changed.emit()
 	return true
 
 
@@ -146,6 +174,8 @@ func to_dict() -> Dictionary:
 		"day": day,
 		"last_bonus": last_bonus_unix,
 		"wool_found": wool_found.keys(),
+		"wool_stock": _stock_to_dict(),
+		"daily": DailyShop.to_dict(),
 	}
 
 
@@ -156,7 +186,19 @@ func from_dict(data: Dictionary) -> void:
 	wool_found.clear()
 	for id: String in data.get("wool_found", []):
 		wool_found[StringName(id)] = true
+	wool_stock.clear()
+	var stock: Dictionary = data.get("wool_stock", {})
+	for id: String in stock:
+		wool_stock[StringName(id)] = int(stock[id])
+	DailyShop.from_dict(data.get("daily", {}))
 	phase = Phase.DAY
 	money_changed.emit(money)
 	day_changed.emit(day)
 	stats_changed.emit()
+
+
+func _stock_to_dict() -> Dictionary:
+	var result := {}
+	for id: StringName in wool_stock:
+		result[String(id)] = wool_stock[id]
+	return result
